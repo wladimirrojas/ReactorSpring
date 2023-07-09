@@ -7,6 +7,11 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 @SpringBootApplication
 public class SpringBootReactorApplication implements CommandLineRunner {
@@ -19,15 +24,73 @@ public class SpringBootReactorApplication implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        Flux<User> names = Flux.just("Wladimir Rojas", "Pablo Parlo", "Maria Nadie", "Juan Castillo", "José Megan", "Bruce Lee", "Bruce Willis")
+
+        flatMapOperatorToString();
+    }
+
+    public void flatMapOperatorToString() throws Exception {
+
+        List<User> usersNamesList = new ArrayList<>();
+        Collections.addAll(usersNamesList,
+                new User("Wladimir", "Rojas"),
+                new User("Pablo", " Parlo"),
+                new User("Maria", "Nadie"),
+                new User("Juan", "Castillo"),
+                new User("José", "Megan"),
+                new User("Bruce", "Lee"),
+                new User("Bruce", "Willis"));
+
+        Flux.fromIterable(usersNamesList)
+                .map(user -> user.getName().toUpperCase().concat(" ").concat(user.getLastName().toUpperCase()))
+                .flatMap(name -> {
+                    if (name.contains("bruce".toUpperCase())) {
+                        return Mono.just(name);
+                    }
+                    return Mono.empty();
+                })
+                .map(String::toLowerCase)
+                .subscribe(name -> log.info(name.toString()));
+    }
+
+
+
+    public void flatMapOperator() throws Exception {
+
+        List<String> usersNamesList = new ArrayList<>();
+        Collections.addAll(usersNamesList, "Wladimir Rojas", "Pablo Parlo", "Maria Nadie", "Juan Castillo", "José Megan", "Bruce Lee", "Bruce Willis");
+
+        Flux.fromIterable(usersNamesList)
+                .map(name -> new User(name.split(" ")[0].toUpperCase(), name.split(" ")[1].toUpperCase()))
+                .flatMap(user -> {
+                    if (user.getName().equalsIgnoreCase("bruce")) {
+                        return Mono.just(user);
+                    }
+                    return Mono.empty();
+                })
+                .map(user -> {
+                    String name = user.getName().toLowerCase();
+                    user.setName(name);
+                    return user;
+                })
+                .subscribe(user -> log.info(user.toString()));
+    }
+
+    public void iterable() throws Exception {
+
+        List<String> usersNamesList = new ArrayList<>();
+        Collections.addAll(usersNamesList, "Wladimir Rojas", "Pablo Parlo", "Maria Nadie", "Juan Castillo", "José Megan", "Bruce Lee", "Bruce Willis");
+
+        Flux<String> names = Flux.fromIterable(usersNamesList);
+
+        Flux<User> users = names
                 .map(name -> new User(name.split(" ")[0].toUpperCase(), name.split(" ")[1].toUpperCase()))
                 .filter(user -> user.getName().toLowerCase().equals("bruce"))
                 .doOnNext(user ->
-                        {
-                        if (user == null) {
-                            throw new RuntimeException("names cannot be empty");
-                        }
-                            System.out.println(user.getName().concat(" ").concat(user.getLastName()));
+                {
+                    if (user == null) {
+                        throw new RuntimeException("names cannot be empty");
+                    }
+                    System.out.println(user.getName().concat(" ").concat(user.getLastName()));
                 })
                 .map(user -> {
                     String name = user.getName().toLowerCase();
@@ -35,7 +98,7 @@ public class SpringBootReactorApplication implements CommandLineRunner {
                     return user;
                 });
 
-        names.subscribe(
+        users.subscribe(
                 user -> log.info(user.toString()),
                 error -> log.error(error.getMessage()),
                 () -> log.info("Ha finalizado la ejecución del observable con éxito"));
