@@ -19,14 +19,15 @@ public class SpringBootReactorApplication implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        Flux<User> names = Flux.just("Wladimir", "Pedro", "Maria", "Diego", "Juan")
-                .map(name -> new User(name.toUpperCase(), null))
+        Flux<User> names = Flux.just("Wladimir Rojas", "Pablo Parlo", "Maria Nadie", "Juan Castillo", "José Megan", "Bruce Lee", "Bruce Willis")
+                .map(name -> new User(name.split(" ")[0].toUpperCase(), name.split(" ")[1].toUpperCase()))
+                .filter(user -> user.getName().toLowerCase().equals("bruce"))
                 .doOnNext(user ->
                         {
                         if (user == null) {
                             throw new RuntimeException("names cannot be empty");
                         }
-                            System.out.println(user.getName());
+                            System.out.println(user.getName().concat(" ").concat(user.getLastName()));
                 })
                 .map(user -> {
                     String name = user.getName().toLowerCase();
@@ -37,11 +38,6 @@ public class SpringBootReactorApplication implements CommandLineRunner {
         names.subscribe(
                 user -> log.info(user.toString()),
                 error -> log.error(error.getMessage()),
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        log.info("Ha finalizado la ejecución del observable con éxito");
-                    }
-                });
+                () -> log.info("Ha finalizado la ejecución del observable con éxito"));
     }
 }
