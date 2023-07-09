@@ -1,6 +1,8 @@
 package com.ideas.springboot.reactor.app;
 
+import com.ideas.springboot.reactor.app.models.Comments;
 import com.ideas.springboot.reactor.app.models.User;
+import com.ideas.springboot.reactor.app.models.UserComment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
@@ -25,7 +27,44 @@ public class SpringBootReactorApplication implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
 
-        flatMapOperatorToString();
+        userCommentFlatMap();
+    }
+
+    public User userCreator() {
+        return new User("Wladimir", "Rojas");
+    }
+
+    public void userCommentFlatMap() {
+        //Mono<User> user = Mono.fromCallable(() -> userCreator());
+        Mono<User> user = Mono.fromCallable(() -> new User("Wladimir", "Rojas"));
+
+        Mono<Comments> userComments = Mono.fromCallable(() -> {
+            Comments comments = new Comments();
+            comments.addComments("Hola Soy Wladimir!");
+            comments.addComments("Los saludo desde Github!");
+            return comments;
+        });
+
+        user.flatMap(userMono -> userComments.map(comment -> new UserComment(userMono, comment)))
+                .subscribe(userComment -> log.info(userComment.toString()));
+
+    }
+
+    public void collectList() throws Exception {
+
+        List<User> usersNamesList = new ArrayList<>();
+        Collections.addAll(usersNamesList,
+                new User("Wladimir", "Rojas"),
+                new User("Pablo", " Parlo"),
+                new User("Maria", "Nadie"),
+                new User("Juan", "Castillo"),
+                new User("José", "Megan"),
+                new User("Bruce", "Lee"),
+                new User("Bruce", "Willis"));
+
+        Flux.fromIterable(usersNamesList)
+                .collectList()
+                .subscribe(userList -> userList.forEach(user -> log.info(user.toString())));
     }
 
     public void flatMapOperatorToString() throws Exception {
