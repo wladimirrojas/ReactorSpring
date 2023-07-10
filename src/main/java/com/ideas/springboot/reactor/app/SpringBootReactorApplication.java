@@ -27,7 +27,52 @@ public class SpringBootReactorApplication implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
 
-        userCommentFlatMap();
+        zipWithRange();
+    }
+
+    public void zipWithRange() {
+        Flux.just(1, 2, 3, 4)
+                .map(i -> (i*2))
+                .zipWith(Flux.range(0, 4), (first, second) -> String.format("First Flux: %d, Second Flux: %d", first, second))
+                .subscribe(text -> log.info(text));
+    }
+
+    public void userCommentZipTwo() {
+        //Mono<User> user = Mono.fromCallable(() -> userCreator());
+        Mono<User> userMono = Mono.fromCallable(() -> new User("Wladimir", "Rojas"));
+
+        Mono<Comments> userComments = Mono.fromCallable(() -> {
+            Comments comments = new Comments();
+            comments.addComments("Hola Soy Wladimir!");
+            comments.addComments("Los saludo desde Github!");
+            return comments;
+        });
+
+        Mono<UserComment> userCommentMono = userMono.zipWith(userComments)
+                .map(tuple -> {
+                    User u = tuple.getT1();
+                    Comments c = tuple.getT2();
+                    return new UserComment(u, c);
+                });
+
+        userCommentMono.subscribe(userComment -> log.info(userComment.toString()));
+
+    }
+
+    public void userCommentZip() {
+        //Mono<User> user = Mono.fromCallable(() -> userCreator());
+        Mono<User> userMono = Mono.fromCallable(() -> new User("Wladimir", "Rojas"));
+
+        Mono<Comments> userComments = Mono.fromCallable(() -> {
+            Comments comments = new Comments();
+            comments.addComments("Hola Soy Wladimir!");
+            comments.addComments("Los saludo desde Github!");
+            return comments;
+        });
+
+        Mono<UserComment> userCommentMono = userMono.zipWith(userComments, (user, comment) -> new UserComment(user, comment));
+        userCommentMono.subscribe(userComment -> log.info(userComment.toString()));
+
     }
 
     public User userCreator() {
