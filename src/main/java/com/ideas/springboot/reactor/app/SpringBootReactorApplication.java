@@ -3,6 +3,8 @@ package com.ideas.springboot.reactor.app;
 import com.ideas.springboot.reactor.app.models.Comments;
 import com.ideas.springboot.reactor.app.models.User;
 import com.ideas.springboot.reactor.app.models.UserComment;
+import org.reactivestreams.Subscriber;
+import org.reactivestreams.Subscription;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
@@ -11,9 +13,16 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.CountDownLatch;
 
 @SpringBootApplication
 public class SpringBootReactorApplication implements CommandLineRunner {
@@ -27,7 +36,111 @@ public class SpringBootReactorApplication implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
 
-        zipWithRange();
+        counterPressure();
+    }
+
+    public void counterPressure() {
+
+        Flux.range(1, 10)
+                .log()
+                //.limitRate(5)
+                .subscribe(
+                        new Subscriber<Integer>() {
+
+                    private Subscription s;
+
+                    private Integer limit = 5;
+                    private Integer consumed = 0;
+
+                    @Override
+                    public void onSubscribe(Subscription s) {
+                        this.s = s;
+                        s.request(limit);
+                    }
+
+                    @Override
+                    public void onNext(Integer o) {
+                        log.info(o.toString());
+                        consumed++;
+                        if (consumed == limit) {
+                            consumed = 0;
+                            s.request(limit);
+                        }
+                    }
+
+                    @Override
+                    public void onError(Throwable throwable) {
+
+                    }
+
+                    @Override
+                    public void onComplete() {
+
+                    }
+                });
+    }
+
+    public void intervalByCreate() {
+        Flux.create(emitter -> {
+            Timer timer = new Timer();
+            timer.schedule(new TimerTask() {
+                private Integer counter = 0;
+                @Override
+                public void run() {
+                    emitter.next(++counter);
+                    if (counter == 10) {
+                        timer.cancel();
+                        emitter.complete();
+                    }
+                    if (counter == 5) {
+                        timer.cancel();
+                        emitter.error(new InterruptedException("We have stopped at 5"));
+                    }
+
+                }
+            }, 1000, 1000);
+        })
+                .subscribe(next -> log.info(next.toString()),
+                        error -> log.error(error.getMessage()),
+                        () -> log.info("We have finished"));
+    }
+
+    public void endlessInterval() throws InterruptedException {
+
+        CountDownLatch latch = new CountDownLatch(1);
+
+        Flux.interval(Duration.ofSeconds(1))
+                .doOnTerminate(latch::countDown)
+                .flatMap(i -> {
+                    if (i >= 5) {
+                        return Flux.error(new InterruptedException("Only to five"));
+                    }
+                    return Flux.just(i);
+                })
+                .map(i -> "Hola " + i)
+                .retry(2)
+                .subscribe(s -> log.info(s), e -> log.error(e.getMessage()));
+
+        latch.await();
+    }
+
+    public void delayExample() throws InterruptedException {
+        Flux<Integer> range = Flux.range(1, 12)
+                .delayElements(Duration.ofSeconds(1))
+                .doOnNext(i -> log.info(i.toString()));
+
+        range.subscribe();
+
+        Thread.sleep(13000);
+    }
+
+    public void interalExample() {
+        Flux<Integer> range = Flux.range(1, 12);
+        Flux<Long> delay = Flux.interval(Duration.ofSeconds(1));
+
+        range.zipWith(delay, (ra, de) -> ra)
+                .doOnNext(i -> log.info(i.toString()))
+                .blockLast();
     }
 
     public void zipWithRange() {
